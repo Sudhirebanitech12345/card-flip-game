@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: #4CAF50;
+            color: white;
+            border-radius: 10px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .card:hover {
+            background: #45a049;
+        }
+        
+        .card.flipped {
+            background: #2e7d32;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Fashion Memory Game Controller</h1>
+        
+        <div class="game-info">
+            <div>Next: <span id="nextCard">1</span></div>
+            <div>Score: <span id="score">0</span></div>
+            <div>Time: <span id="time">0</span>s</div>
+        </div>
+
+        <div class="cards-grid" id="cardsGrid"></div>
+
+        <div class="controls">
+            <button class="btn" id="newGameBtn">New Game</button>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let gameState = {
+            currentSequence: 1,
+            flippedCards: [],
+            gameWon: false,
+            score: 0,
+            startTime: Date.now()
+        };
+        
+        // Initialize game board
+        function createCards() {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 12; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = i;
+                card.textContent = i + 1;
+                
+                card.addEventListener('click', () => {
+                    if (!gameState.gameWon) {
+                        socket.emit('flip-card', {
+                            index: i,
+                            currentSequence: gameState.currentSequence
+                        });
+                    }
+                });
+                
+                grid.appendChild(card);
+            }
+        }
+        
+        // Update UI based on game state
+        function updateUI(state) {
+            gameState = {
+                ...gameState,
+                ...state
+            };
+            
+            document.getElementById('nextCard').textContent = gameState.gameWon ? 'Complete!' : gameState.currentSequence;
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('time').textContent = Math.floor((Date.now() - gameState.startTime) / 1000);
+            
+            // Update card states
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                if (gameState.flippedCards.includes(index)) {
+                    card.classList.add('flipped');
+                } else {
+                    card.classList.remove('flipped');
+                }
+            });
+            
+            // Update status
+            const status = document.getElementById('status');
+            if (gameState.gameWon) {
+                status.textContent = `🎉 You won! Final Score: ${gameState.score}`;
+                status.style.backgroundColor = '#dff0d8';
+                status.style.color = '#3c763d';
+            } else {
+                status.textContent = '';
+                status.style.backgroundColor = 'transparent';
+            }
+        }
+        
+        // New game button
+        document.getElementById('newGameBtn').addEventListener('click', () => {
+            gameState.startTime = Date.now();
+            socket.emit('new-game');
+        });
+        
+        // Socket event listeners
+        socket.on('game-state', (state) => {
+            updateUI(state);
+        });
+        
+        // Initialize
+        createCards();
+    </script>
+</body>
+</html>

@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Memory Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 1000px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .instructions {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            line-height: 1.5;
+            max-width: 800px;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .next-card {
+            color: #FFD700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .score {
+            color: #FFD700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .timer {
+            color: #FFD700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-items: center;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .card {
+            width: 150px;
+            height: 200px;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-back {
+            background: white;
+            border: 5px solid white;
+            transform: rotateY(0deg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card-back::before {
+            content: "";
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 3px solid white;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        .card-back-image {
+            width: 80%;
+            height: auto;
+            max-height: 80%;
+            object-fit: contain;
+        }
+
+        .card-front {
+            background: white;
+            transform: rotateY(180deg);
+            color: black;
+            font-weight: bold;
+        }
+
+        .fashion-item {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .offer-text {
+            font-size: 1.2em;
+            color: #d10000;
+            font-weight: bold;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .sequence-number {
+            font-size: 1.5em;
+            color: #333;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s;
+        }
+
+        .card.correct {
+            animation: correctPulse 0.5s ease-in-out;
+        }
+
+        .card.wrong {
+            animation: wrongShake 0.5s ease-in-out;
+        }
+
+        @keyframes correctPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .controls {
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            margin: 0 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            min-height: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .status.success {
+            background: rgba(46, 213, 115, 0.2);
+            color: #2ed573;
+            border: 1px solid rgba(46, 213, 115, 0.5);
+        }
+
+        .status.error {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 107, 107, 0.5);
+        }
+
+        .status.info {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .cards-grid {
+                grid-template-columns: repeat(3, 1fr);
+                max-width: 390px;
+            }
+            
+            .card {
+                width: 90px;
+                height: 135px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .fashion-item {
+                font-size: 2em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 260px;
+            }
+            
+            .card {
+                width: 80px;
+                height: 120px;
+            }
+            
+            .fashion-item {
+                font-size: 1.5em;
+            }
+            
+            .game-info {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .controls {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn {
+                margin: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Fashion Memory Game</h1>
+        <div class="instructions">
+            Find and flip cards in sequence from 1 to 12 to reveal fashion items and special offers!<br>
+            +10 points for each correct card!<br>
+            Wrong selection hides all cards!
+        </div>
+        
+        <div class="game-info">
+            <div>Progress: <span id="progress">0/12</span></div>
+            <div class="next-card">Next: <span id="nextCard">1</span></div>
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="timer">Time: <span id="time">0</span>s</div>
+        </div>
+
+        <div class="cards-grid" id="cardsGrid"></div>
+
+        <div class="controls">
+            <button class="btn" id="newGameBtn">New Game</button>
+            <button class="btn" id="peekBtn">Peek All</button>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Fashion items and their offers
+        const fashionItems = [
+            { emoji: '👕', offer: "T-Shirt: 30% OFF" },
+            { emoji: '🧢', offer: "Cap: Buy 1 Get 1 Free" },
+            { emoji: '👖', offer: "Jeans: Limited Edition" },
+            { emoji: '👟', offer: "Sneakers: Flash Sale" },
+            { emoji: '🕶️', offer: "Sunglasses: 50% OFF" },
+            { emoji: '👔', offer: "Shirt: Premium Collection" },
+            { emoji: '🧥', offer: "Jacket: Winter Special" },
+            { emoji: '👗', offer: "Dress: New Arrival" },
+            { emoji: '🩳', offer: "Shorts: Summer Deal" },
+            { emoji: '👠', offer: "Heels: Luxury Line" },
+            { emoji: '🎒', offer: "Backpack: Student Discount" },
+            { emoji: '🧦', offer: "Socks: 3 for 2" }
+        ];
+
+        let gameState = {
+            cards: [],
+            currentSequence: 1,
+            flippedCards: [],
+            gameWon: false,
+            canFlip: true,
+            score: 0,
+            startTime: null,
+            timerInterval: null
+        };
+
+        const socket = io();
+
+        function initializeGame() {
+            // Create array of numbers 1-12 with fashion items
+            gameState.cards = Array.from({length: 12}, (_, i) => ({
+                number: i + 1,
+                item: fashionItems[i].emoji,
+                offer: fashionItems[i].offer
+            }));
+            
+            // Shuffle the cards
+            shuffleArray(gameState.cards);
+            
+            // Reset game state
+            gameState.currentSequence = 1;
+            gameState.flippedCards = [];
+            gameState.gameWon = false;
+            gameState.canFlip = true;
+            gameState.score = 0;
+            
+            // Reset timer
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+            }
+            gameState.startTime = Date.now();
+            gameState.timerInterval = setInterval(updateTimer, 1000);
+            
+            createCards();
+            updateUI();
+            showStatus("Game started! Find card 1 to begin.", "info");
+            
+            // Notify server and clients of new game
+            socket.emit('new-game');
+        }
+
+        function updateTimer() {
+            const elapsedSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+            document.getElementById('time').textContent = elapsedSeconds;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createCards() {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+            
+            gameState.cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.dataset.index = index;
+                cardElement.dataset.number = card.number;
+                
+                cardElement.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-back">
+                            <img src="/style-up-Logo.png" class="card-back-image" alt="Card Back">
+                        </div>
+                        <div class="card-face card-front">
+                            <div class="fashion-item">${card.item}</div>
+                            <div class="offer-text">${card.offer}</div>
+                            <div class="sequence-number">${card.number}</div>
+                        </div>
+                    </div>
+                `;
+                
+                cardElement.addEventListener('click', () => flipCard(index));
+                grid.appendChild(cardElement);
+            });
+        }
+
+        function flipCard(index) {
+            if (!gameState.canFlip || gameState.gameWon) return;
+            
+            const cardElement = document.querySelector(`[data-index="${index}"]`);
+            const cardNumber = parseInt(cardElement.dataset.number);
+            
+            // If card is already flipped, ignore
+            if (cardElement.classList.contains('flipped')) return;
+            
+            // Flip the card
+            cardElement.classList.add('flipped');
+            
+            // Send minimal data to server
+            socket.emit('flip-card', {
+                index: index,
+                currentSequence: gameState.currentSequence
+            });
+            
+            // Check if it's the correct sequence
+            if (cardNumber === gameState.currentSequence) {
+                // Correct card!
+                gameState.flippedCards.push(index);
+                gameState.currentSequence++;
+                gameState.score += 10;
+                
+                cardElement.classList.add('correct');
+                setTimeout(() => cardElement.classList.remove('correct'), 500);
+                
+                // Check if game is won
+                if (gameState.currentSequence > 12) {
+                    gameState.gameWon = true;
+                    clearInterval(gameState.timerInterval);
+                    const elapsedSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+                    showStatus(`🎉 You won in ${elapsedSeconds} seconds! Final Score: ${gameState.score}`, "success");
+                } else {
+                    showStatus(`+10 Points! Now find card ${gameState.currentSequence}`, "success");
+                }
+            } else {
+                // Wrong card - hide all cards
+                cardElement.classList.add('wrong');
+                setTimeout(() => {
+                    // Hide all cards
+                    const allCards = document.querySelectorAll('.card');
+                    allCards.forEach(card => {
+                        card.classList.remove('flipped');
+                    });
+                    
+                    // Reset progress (but keep score)
+                    gameState.currentSequence = 1;
+                    gameState.flippedCards = [];
+                    showStatus(`Wrong card! All cards hidden. Find card 1 to continue. Score: ${gameState.score}`, "error");
+                }, 500);
+            }
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('progress').textContent = `${gameState.currentSequence - 1}/12`;
+            document.getElementById('nextCard').textContent = gameState.gameWon ? "Complete!" : gameState.currentSequence;
+            document.getElementById('score').textContent = gameState.score;
+            
+            // Broadcast minimal state to mobile clients
+            socket.emit('game-state', {
+                currentSequence: gameState.currentSequence,
+                flippedCards: gameState.flippedCards,
+                gameWon: gameState.gameWon,
+                score: gameState.score
+            });
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function showAllCards() {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => card.classList.add('flipped'));
+            
+            setTimeout(() => {
+                cards.forEach(card => {
+                    if (!gameState.flippedCards.includes(parseInt(card.dataset.index))) {
+                        card.classList.remove('flipped');
+                    }
+                });
+            }, 2000);
+            
+            showStatus("Peeking at all cards for 2 seconds...", "info");
+        }
+
+        // Socket event listeners
+        socket.on('game-state', (state) => {
+            // Update local state with minimal data
+            gameState.currentSequence = state.currentSequence;
+            gameState.flippedCards = state.flippedCards;
+            gameState.gameWon = state.gameWon;
+            gameState.score = state.score;
+            
+            // Update UI
+            document.getElementById('progress').textContent = `${state.currentSequence - 1}/12`;
+            document.getElementById('nextCard').textContent = state.gameWon ? "Complete!" : state.currentSequence;
+            document.getElementById('score').textContent = state.score;
+            
+            // Update card states
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                if (state.flippedCards.includes(index)) {
+                    card.classList.add('flipped');
+                } else {
+                    card.classList.remove('flipped');
+                }
+            });
+        });
+
+        // Button event listeners
+        document.getElementById('newGameBtn').addEventListener('click', initializeGame);
+        document.getElementById('peekBtn').addEventListener('click', showAllCards);
+
+        // Initialize the game when page loads
+        window.addEventListener('load', initializeGame);
+    </script>
+</body>
+</html>
