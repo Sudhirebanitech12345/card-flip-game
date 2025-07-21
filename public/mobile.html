@@ -41,10 +41,19 @@
             text-align: center;
             margin-bottom: 15px;
             font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.05);
         }
         
         .connected {
             color: green;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        .disconnected {
+            color: red;
+            background: rgba(255, 0, 0, 0.1);
         }
         
         .game-info {
@@ -138,17 +147,22 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session');
+        
         const socket = io();
         let gameState = {
             currentSequence: 1,
             flippedCards: [],
             gameWon: false,
             score: 0,
-            startTime: Date.now()
+            startTime: Date.now(),
+            sessionId: sessionId
         };
         
         // Notify server that mobile is connected
-        socket.emit('mobile-connect');
+        socket.emit('mobile-connect', { sessionId: sessionId });
         
         // Initialize game board
         function createCards() {
@@ -165,7 +179,8 @@
                     if (!gameState.gameWon) {
                         socket.emit('flip-card', {
                             index: i,
-                            currentSequence: gameState.currentSequence
+                            currentSequence: gameState.currentSequence,
+                            sessionId: gameState.sessionId
                         });
                     }
                 });
@@ -176,6 +191,8 @@
         
         // Update UI based on game state
         function updateUI(state) {
+            if (state.sessionId !== gameState.sessionId) return;
+            
             gameState = {
                 ...gameState,
                 ...state
@@ -184,8 +201,9 @@
             document.getElementById('nextCard').textContent = gameState.gameWon ? 'Complete!' : gameState.currentSequence;
             document.getElementById('score').textContent = gameState.score;
             
-            if (gameState.startTime) {
-                document.getElementById('time').textContent = Math.floor((Date.now() - new Date(gameState.startTime)) / 1000);
+            if (state.startTime) {
+                gameState.startTime = state.startTime;
+                document.getElementById('time').textContent = Math.floor((Date.now() - new Date(state.startTime) / 1000));
             }
             
             // Update card states
@@ -228,7 +246,12 @@
         
         socket.on('disconnect', () => {
             document.getElementById('connectionStatus').textContent = 'Disconnected from game';
-            document.getElementById('connectionStatus').className = 'connection-status';
+            document.getElementById('connectionStatus').className = 'connection-status disconnected';
+        });
+        
+        socket.on('mobile-connected', () => {
+            document.getElementById('connectionStatus').textContent = 'Mobile controller connected!';
+            document.getElementById('connectionStatus').className = 'connection-status connected';
         });
         
         // Initialize
