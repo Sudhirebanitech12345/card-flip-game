@@ -37,6 +37,16 @@
             font-size: 1.8em;
         }
         
+        .connection-status {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .connected {
+            color: green;
+        }
+        
         .game-info {
             display: flex;
             justify-content: space-between;
@@ -109,6 +119,7 @@
 <body>
     <div class="game-container">
         <h1>Fashion Memory Game Controller</h1>
+        <div class="connection-status" id="connectionStatus">Connecting to game...</div>
         
         <div class="game-info">
             <div>Next: <span id="nextCard">1</span></div>
@@ -135,6 +146,9 @@
             score: 0,
             startTime: Date.now()
         };
+        
+        // Notify server that mobile is connected
+        socket.emit('mobile-connect');
         
         // Initialize game board
         function createCards() {
@@ -169,7 +183,10 @@
             
             document.getElementById('nextCard').textContent = gameState.gameWon ? 'Complete!' : gameState.currentSequence;
             document.getElementById('score').textContent = gameState.score;
-            document.getElementById('time').textContent = Math.floor((Date.now() - gameState.startTime) / 1000);
+            
+            if (gameState.startTime) {
+                document.getElementById('time').textContent = Math.floor((Date.now() - new Date(gameState.startTime)) / 1000);
+            }
             
             // Update card states
             const cards = document.querySelectorAll('.card');
@@ -202,6 +219,16 @@
         // Socket event listeners
         socket.on('game-state', (state) => {
             updateUI(state);
+        });
+        
+        socket.on('connect', () => {
+            document.getElementById('connectionStatus').textContent = 'Connected to game!';
+            document.getElementById('connectionStatus').className = 'connection-status connected';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connectionStatus').textContent = 'Disconnected from game';
+            document.getElementById('connectionStatus').className = 'connection-status';
         });
         
         // Initialize

@@ -20,7 +20,8 @@ let gameState = {
     gameWon: false,
     score: 0,
     startTime: null,
-    sessionId: null
+    sessionId: null,
+    connectedClients: 0
 };
 
 // Fashion items and their offers
@@ -63,7 +64,7 @@ function initializeGame() {
 
 // Generate QR Code
 async function generateQRCode() {
-    const url = `https://card-flip-game-5z6b.onrender.com/mobile?session=${gameState.sessionId}`;
+    const url = `https://https://card-flip-game-5z6b.onrender.com/mobile?session=${gameState.sessionId}`;
     return await qrcode.toDataURL(url);
 }
 
@@ -81,6 +82,8 @@ app.get('/', async (req, res) => {
                 h1 { color: #333; }
                 .qr-container { margin: 20px auto; max-width: 300px; }
                 .instructions { margin: 20px 0; }
+                .connection-status { margin-top: 20px; font-weight: bold; }
+                .connected { color: green; }
             </style>
         </head>
         <body>
@@ -94,6 +97,17 @@ app.get('/', async (req, res) => {
             <div class="instructions">
                 Or <a href="/game">click here</a> to play on desktop.
             </div>
+            <div class="connection-status" id="connectionStatus">Waiting for mobile connection...</div>
+            
+            <script src="/socket.io/socket.io.js"></script>
+            <script>
+                const socket = io();
+                socket.on('mobile-connected', () => {
+                    document.getElementById('connectionStatus').textContent = 'Mobile connected!';
+                    document.getElementById('connectionStatus').className = 'connection-status connected';
+                    window.location.href = '/game';
+                });
+            </script>
         </body>
         </html>
     `);
@@ -114,12 +128,26 @@ app.get('/mobile', (req, res) => {
 // Socket.io connection
 io.on('connection', (socket) => {
     console.log('New client connected');
+    gameState.connectedClients++;
     
     // Send initial game state
-    socket.emit('game-state', gameState);
+    socket.emit('game-state', {
+        currentSequence: gameState.currentSequence,
+        flippedCards: gameState.flippedCards,
+        gameWon: gameState.gameWon,
+        score: gameState.score,
+        startTime: gameState.startTime
+    });
+    
+    // Handle mobile connection
+    socket.on('mobile-connect', () => {
+        io.emit('mobile-connected');
+    });
     
     // Handle card flip from mobile or desktop
-    socket.on('flip-card', (index) => {
+    socket.on('flip-card', ({index, currentSequence}) => {
+        if (currentSequence !== gameState.currentSequence) return;
+        
         const cardNumber = gameState.cards[index].number;
         
         if (cardNumber === gameState.currentSequence) {
@@ -137,17 +165,30 @@ io.on('connection', (socket) => {
         }
         
         // Broadcast updated state to all clients
-        io.emit('game-state', gameState);
+        io.emit('game-state', {
+            currentSequence: gameState.currentSequence,
+            flippedCards: gameState.flippedCards,
+            gameWon: gameState.gameWon,
+            score: gameState.score,
+            startTime: gameState.startTime
+        });
     });
     
     // Handle new game request
     socket.on('new-game', () => {
         initializeGame();
-        io.emit('game-state', gameState);
+        io.emit('game-state', {
+            currentSequence: gameState.currentSequence,
+            flippedCards: gameState.flippedCards,
+            gameWon: gameState.gameWon,
+            score: gameState.score,
+            startTime: gameState.startTime
+        });
     });
     
     socket.on('disconnect', () => {
         console.log('Client disconnected');
+        gameState.connectedClients--;
     });
 });
 
