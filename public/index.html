@@ -53,6 +53,35 @@
             max-width: 800px;
         }
 
+        .qr-section {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .qr-code {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 10px;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        .connection-status {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .connected {
+            color: #2ed573;
+        }
+
         .game-info {
             display: flex;
             justify-content: space-between;
@@ -329,6 +358,13 @@
             Wrong selection hides all cards!
         </div>
         
+        <!-- QR Code Section -->
+        <div class="qr-section">
+            <h3>Connect Mobile Controller</h3>
+            <div class="qr-code" id="qrCode"></div>
+            <div class="connection-status" id="connectionStatus">Scan QR code to connect mobile</div>
+        </div>
+
         <div class="game-info">
             <div>Progress: <span id="progress">0/12</span></div>
             <div class="next-card">Next: <span id="nextCard">1</span></div>
@@ -347,6 +383,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script>
         // Fashion items and their offers
         const fashionItems = [
@@ -372,10 +409,21 @@
             canFlip: true,
             score: 0,
             startTime: null,
-            timerInterval: null
+            timerInterval: null,
+            sessionId: null
         };
 
         const socket = io();
+
+        // Generate QR code on page load
+        function generateQRCode() {
+            gameState.sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+            const url = `${window.location.origin}/mobile?session=${gameState.sessionId}`;
+            
+            QRCode.toCanvas(document.getElementById('qrCode'), url, { width: 200 }, (error) => {
+                if (error) console.error(error);
+            });
+        }
 
         function initializeGame() {
             // Create array of numbers 1-12 with fashion items
@@ -407,7 +455,7 @@
             showStatus("Game started! Find card 1 to begin.", "info");
             
             // Notify server and clients of new game
-            socket.emit('new-game');
+            socket.emit('new-game', { sessionId: gameState.sessionId });
         }
 
         function updateTimer() {
@@ -465,7 +513,8 @@
             // Send minimal data to server
             socket.emit('flip-card', {
                 index: index,
-                currentSequence: gameState.currentSequence
+                currentSequence: gameState.currentSequence,
+                sessionId: gameState.sessionId
             });
             
             // Check if it's the correct sequence
@@ -517,7 +566,8 @@
                 currentSequence: gameState.currentSequence,
                 flippedCards: gameState.flippedCards,
                 gameWon: gameState.gameWon,
-                score: gameState.score
+                score: gameState.score,
+                sessionId: gameState.sessionId
             });
         }
 
@@ -544,26 +594,34 @@
 
         // Socket event listeners
         socket.on('game-state', (state) => {
-            // Update local state with minimal data
-            gameState.currentSequence = state.currentSequence;
-            gameState.flippedCards = state.flippedCards;
-            gameState.gameWon = state.gameWon;
-            gameState.score = state.score;
-            
-            // Update UI
-            document.getElementById('progress').textContent = `${state.currentSequence - 1}/12`;
-            document.getElementById('nextCard').textContent = state.gameWon ? "Complete!" : state.currentSequence;
-            document.getElementById('score').textContent = state.score;
-            
-            // Update card states
-            const cards = document.querySelectorAll('.card');
-            cards.forEach((card, index) => {
-                if (state.flippedCards.includes(index)) {
-                    card.classList.add('flipped');
-                } else {
-                    card.classList.remove('flipped');
-                }
-            });
+            // Only update if session matches
+            if (state.sessionId === gameState.sessionId) {
+                // Update local state with minimal data
+                gameState.currentSequence = state.currentSequence;
+                gameState.flippedCards = state.flippedCards;
+                gameState.gameWon = state.gameWon;
+                gameState.score = state.score;
+                
+                // Update UI
+                document.getElementById('progress').textContent = `${state.currentSequence - 1}/12`;
+                document.getElementById('nextCard').textContent = state.gameWon ? "Complete!" : state.currentSequence;
+                document.getElementById('score').textContent = state.score;
+                
+                // Update card states
+                const cards = document.querySelectorAll('.card');
+                cards.forEach((card, index) => {
+                    if (state.flippedCards.includes(index)) {
+                        card.classList.add('flipped');
+                    } else {
+                        card.classList.remove('flipped');
+                    }
+                });
+            }
+        });
+
+        socket.on('mobile-connected', () => {
+            document.getElementById('connectionStatus').textContent = 'Mobile connected!';
+            document.getElementById('connectionStatus').classList.add('connected');
         });
 
         // Button event listeners
@@ -571,7 +629,10 @@
         document.getElementById('peekBtn').addEventListener('click', showAllCards);
 
         // Initialize the game when page loads
-        window.addEventListener('load', initializeGame);
+        window.addEventListener('load', () => {
+            generateQRCode();
+            initializeGame();
+        });
     </script>
 </body>
 </html>
