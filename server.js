@@ -63,7 +63,7 @@ function initializeGame() {
 
 // Generate QR Code
 async function generateQRCode() {
-    const url = `https://card-flip-game-565j.onrender.com/mobile?session=${gameState.sessionId}`;
+    const url = `https://card-flip-game-5z6b.onrender.com/mobile?session=${gameState.sessionId}`;
     return await qrcode.toDataURL(url);
 }
 
