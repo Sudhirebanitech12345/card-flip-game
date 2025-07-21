@@ -68,8 +68,21 @@
             height: 200px;
             margin: 0 auto 10px;
             background: white;
-            padding: 20px;
+            padding: 10px;
             border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qr-code canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .qr-code img {
+            max-width: 100%;
+            max-height: 100%;
         }
 
         .connection-status {
@@ -79,7 +92,7 @@
         }
 
         .connected {
-            color: #2ed573;
+            color: #2ed573 !important;
         }
 
         .game-info {
@@ -361,7 +374,7 @@
         <!-- QR Code Section -->
         <div class="qr-section">
             <h3>Connect Mobile Controller</h3>
-            <div class="qr-code" id="qrCode"></div>
+            <div class="qr-code" id="qrCode">Loading QR Code...</div>
             <div class="connection-status" id="connectionStatus">Scan QR code to connect mobile</div>
         </div>
 
@@ -415,13 +428,28 @@
 
         const socket = io();
 
-        // Generate QR code on page load
-        function generateQRCode() {
-            gameState.sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-            const url = `${window.location.origin}/mobile?session=${gameState.sessionId}`;
+        // Generate QR code
+        function generateQRCode(sessionId) {
+            const url = `${window.location.origin}/mobile?session=${sessionId}`;
             
-            QRCode.toCanvas(document.getElementById('qrCode'), url, { width: 200 }, (error) => {
-                if (error) console.error(error);
+            QRCode.toCanvas(url, { 
+                width: 180, 
+                margin: 1,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, (error, canvas) => {
+                if (error) {
+                    console.error('QR Code generation error:', error);
+                    document.getElementById('qrCode').innerHTML = 'QR Code generation failed';
+                    return;
+                }
+                
+                // Clear the qr-code div and add the canvas
+                const qrDiv = document.getElementById('qrCode');
+                qrDiv.innerHTML = '';
+                qrDiv.appendChild(canvas);
             });
         }
 
@@ -454,8 +482,8 @@
             updateUI();
             showStatus("Game started! Find card 1 to begin.", "info");
             
-            // Notify server and clients of new game
-            socket.emit('new-game', { sessionId: gameState.sessionId });
+            // Notify server of new game
+            socket.emit('new-game');
         }
 
         function updateTimer() {
@@ -483,7 +511,7 @@
                 cardElement.innerHTML = `
                     <div class="card-inner">
                         <div class="card-face card-back">
-                            <img src="/style-up-Logo.png" class="card-back-image" alt="Card Back">
+                            <img src="/style-up-Logo.png" class="card-back-image" alt="Card Back" onerror="this.style.display='none'; this.parentElement.innerHTML='?';">
                         </div>
                         <div class="card-face card-front">
                             <div class="fashion-item">${card.item}</div>
@@ -510,7 +538,7 @@
             // Flip the card
             cardElement.classList.add('flipped');
             
-            // Send minimal data to server
+            // Send flip data to server
             socket.emit('flip-card', {
                 index: index,
                 currentSequence: gameState.currentSequence,
@@ -560,15 +588,6 @@
             document.getElementById('progress').textContent = `${gameState.currentSequence - 1}/12`;
             document.getElementById('nextCard').textContent = gameState.gameWon ? "Complete!" : gameState.currentSequence;
             document.getElementById('score').textContent = gameState.score;
-            
-            // Broadcast minimal state to mobile clients
-            socket.emit('game-state', {
-                currentSequence: gameState.currentSequence,
-                flippedCards: gameState.flippedCards,
-                gameWon: gameState.gameWon,
-                score: gameState.score,
-                sessionId: gameState.sessionId
-            });
         }
 
         function showStatus(message, type) {
@@ -594,34 +613,50 @@
 
         // Socket event listeners
         socket.on('game-state', (state) => {
-            // Only update if session matches
-            if (state.sessionId === gameState.sessionId) {
-                // Update local state with minimal data
-                gameState.currentSequence = state.currentSequence;
-                gameState.flippedCards = state.flippedCards;
-                gameState.gameWon = state.gameWon;
-                gameState.score = state.score;
-                
-                // Update UI
-                document.getElementById('progress').textContent = `${state.currentSequence - 1}/12`;
-                document.getElementById('nextCard').textContent = state.gameWon ? "Complete!" : state.currentSequence;
-                document.getElementById('score').textContent = state.score;
-                
-                // Update card states
-                const cards = document.querySelectorAll('.card');
-                cards.forEach((card, index) => {
-                    if (state.flippedCards.includes(index)) {
-                        card.classList.add('flipped');
-                    } else {
-                        card.classList.remove('flipped');
-                    }
-                });
+            // Update local state with server data
+            if (state.sessionId && state.sessionId !== gameState.sessionId) {
+                gameState.sessionId = state.sessionId;
+                generateQRCode(state.sessionId);
             }
+            
+            gameState.currentSequence = state.currentSequence;
+            gameState.flippedCards = state.flippedCards;
+            gameState.gameWon = state.gameWon;
+            gameState.score = state.score;
+            
+            if (state.startTime) {
+                gameState.startTime = state.startTime;
+            }
+            
+            // Update UI
+            document.getElementById('progress').textContent = `${state.currentSequence - 1}/12`;
+            document.getElementById('nextCard').textContent = state.gameWon ? "Complete!" : state.currentSequence;
+            document.getElementById('score').textContent = state.score;
+            
+            // Update card states
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                if (state.flippedCards.includes(index)) {
+                    card.classList.add('flipped');
+                } else {
+                    card.classList.remove('flipped');
+                }
+            });
         });
 
         socket.on('mobile-connected', () => {
             document.getElementById('connectionStatus').textContent = 'Mobile connected!';
             document.getElementById('connectionStatus').classList.add('connected');
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('connectionStatus').textContent = 'Disconnected from server';
+            document.getElementById('connectionStatus').classList.remove('connected');
         });
 
         // Button event listeners
@@ -630,7 +665,6 @@
 
         // Initialize the game when page loads
         window.addEventListener('load', () => {
-            generateQRCode();
             initializeGame();
         });
     </script>

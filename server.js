@@ -64,7 +64,7 @@ function initializeGame() {
 
 // Generate QR Code
 async function generateQRCode() {
-    const url = `https://https://card-flip-game-5z6b.onrender.com/mobile?session=${gameState.sessionId}`;
+    const url = `https://card-flip-game-5z6b.onrender.com/mobile?session=${gameState.sessionId}`;
     return await qrcode.toDataURL(url);
 }
 
@@ -78,26 +78,89 @@ app.get('/', async (req, res) => {
         <head>
             <title>Fashion Memory Game</title>
             <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-                h1 { color: #333; }
-                .qr-container { margin: 20px auto; max-width: 300px; }
-                .instructions { margin: 20px 0; }
-                .connection-status { margin-top: 20px; font-weight: bold; }
-                .connected { color: green; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 20px;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    color: white;
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+                h1 { 
+                    color: white; 
+                    margin-bottom: 20px;
+                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+                }
+                .qr-container { 
+                    margin: 20px auto; 
+                    max-width: 300px;
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 20px;
+                    border-radius: 15px;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                }
+                .instructions { 
+                    margin: 20px 0; 
+                    max-width: 500px;
+                    line-height: 1.6;
+                }
+                .connection-status { 
+                    margin-top: 20px; 
+                    font-weight: bold;
+                    padding: 10px;
+                    border-radius: 5px;
+                    background: rgba(255, 255, 255, 0.1);
+                }
+                .connected { 
+                    color: #2ed573;
+                    background: rgba(46, 213, 115, 0.2);
+                }
+                .btn {
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 25px;
+                    font-size: 1.1em;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+                    margin-top: 20px;
+                    text-decoration: none;
+                    display: inline-block;
+                }
+                .btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+                }
+                .qr-code-img {
+                    width: 200px;
+                    height: 200px;
+                    margin: 0 auto;
+                    display: block;
+                }
             </style>
         </head>
         <body>
             <h1>Fashion Memory Game</h1>
             <div class="instructions">
-                Scan this QR code with your mobile device to connect:
+                Find and flip cards in sequence from 1 to 12 to reveal fashion items and special offers!<br>
+                +10 points for each correct card!<br>
+                Wrong selection hides all cards!
             </div>
+            
             <div class="qr-container">
-                <img src="${qrCode}" alt="QR Code">
+                <h3>Connect Mobile Controller</h3>
+                <img class="qr-code-img" src="${qrCode}" alt="QR Code">
+                <div class="connection-status" id="connectionStatus">Scan QR code to connect mobile</div>
+                <a href="/game" class="btn">Play on Desktop</a>
             </div>
-            <div class="instructions">
-                Or <a href="/game">click here</a> to play on desktop.
-            </div>
-            <div class="connection-status" id="connectionStatus">Waiting for mobile connection...</div>
             
             <script src="/socket.io/socket.io.js"></script>
             <script>
@@ -105,7 +168,6 @@ app.get('/', async (req, res) => {
                 socket.on('mobile-connected', () => {
                     document.getElementById('connectionStatus').textContent = 'Mobile connected!';
                     document.getElementById('connectionStatus').className = 'connection-status connected';
-                    window.location.href = '/game';
                 });
             </script>
         </body>
@@ -136,17 +198,20 @@ io.on('connection', (socket) => {
         flippedCards: gameState.flippedCards,
         gameWon: gameState.gameWon,
         score: gameState.score,
-        startTime: gameState.startTime
+        startTime: gameState.startTime,
+        sessionId: gameState.sessionId
     });
     
     // Handle mobile connection
-    socket.on('mobile-connect', () => {
-        io.emit('mobile-connected');
+    socket.on('mobile-connect', ({sessionId}) => {
+        if (sessionId === gameState.sessionId) {
+            io.emit('mobile-connected');
+        }
     });
     
     // Handle card flip from mobile or desktop
-    socket.on('flip-card', ({index, currentSequence}) => {
-        if (currentSequence !== gameState.currentSequence) return;
+    socket.on('flip-card', ({index, currentSequence, sessionId}) => {
+        if (sessionId !== gameState.sessionId || currentSequence !== gameState.currentSequence) return;
         
         const cardNumber = gameState.cards[index].number;
         
@@ -170,7 +235,8 @@ io.on('connection', (socket) => {
             flippedCards: gameState.flippedCards,
             gameWon: gameState.gameWon,
             score: gameState.score,
-            startTime: gameState.startTime
+            startTime: gameState.startTime,
+            sessionId: gameState.sessionId
         });
     });
     
@@ -182,7 +248,8 @@ io.on('connection', (socket) => {
             flippedCards: gameState.flippedCards,
             gameWon: gameState.gameWon,
             score: gameState.score,
-            startTime: gameState.startTime
+            startTime: gameState.startTime,
+            sessionId: gameState.sessionId
         });
     });
     
@@ -195,7 +262,7 @@ io.on('connection', (socket) => {
 // Initialize first game
 initializeGame();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
